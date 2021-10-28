@@ -1,0 +1,6 @@
+[submodule "lab1server"]
+	path = lab1server
+	url = https://github.com/k1unk/lab1__server.git
+[submodule "lab1client"]
+	path = lab1client
+	url = https://github.com/k1unk/lab1__client.git
