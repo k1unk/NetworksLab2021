@@ -19,10 +19,10 @@ public class MessageCreator {
         Instant instant = Instant.ofEpochMilli(Long.parseLong(date));
         LocalDateTime ldt = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
         String newDate = ldt.toString().replace("T", " ");
-        if (command == 'g') {
+        if (command == Command.GREETING.getSymbol()) {
             System.out.println(userName + " joined the server at " + newDate);
         }
-        if (command == 't') {
+        if (command == Command.TEXT.getSymbol()) {
             if (fileLength == 0) {
                 System.out.println("<" + newDate + "> [" + userName + "] " );
             } else {
@@ -30,10 +30,10 @@ public class MessageCreator {
                         ", file: " + fileName);
             }
         }
-        if (command == 'c') {
+        if (command == Command.CLOSE.getSymbol()) {
             System.out.println(userName + " left the server at " + newDate);
         }
-        if (command == 'f') {
+        if (command == Command.FINISH_SERVER.getSymbol()) {
             System.out.println(userName + " finishing the server at " + newDate);
         }
 

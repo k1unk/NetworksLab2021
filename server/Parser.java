@@ -1,3 +1,5 @@
+import java.nio.charset.StandardCharsets;
+
 public class Parser {
     private final String userName;
     private final char command;
@@ -63,10 +65,23 @@ public class Parser {
         }
 
         field = fieldBuilder.toString();
+        System.out.println(field);
         return field;
     }
 
+    public static String getField(byte[] bytes, char key) {
+        int index = 0;
+        while (true) {
+            index++;
+            if (bytes[index] == '\'' && bytes[index + 1] == key &&
+                    bytes[index + 2] == '\'' && bytes[index + 3] == ':') {
+                return createField(bytes, index);
+            }
+        }
+    }
+
     public static Parser getAll(byte[] bytes) {
+        System.out.println(new String(bytes, StandardCharsets.UTF_8));
         int index = 0;
         String userName;
         char command;
@@ -74,47 +89,11 @@ public class Parser {
         String fileName;
         int fileLength;
 
-        while (true) {
-            index++;
-            if (bytes[index] == '\'' && bytes[index + 1] == 'u' &&
-                    bytes[index + 2] == '\'' && bytes[index + 3] == ':') {
-                userName = createField(bytes, index);
-                break;
-            }
-        }
-        while (true) {
-            index++;
-            if (bytes[index] == '\'' && bytes[index + 1] == 'c' &&
-                    bytes[index + 2] == '\'' && bytes[index + 3] == ':') {
-                command = createField(bytes, index).charAt(0);
-                break;
-            }
-        }
-        while (true) {
-            index++;
-            if (bytes[index] == '\'' && bytes[index + 1] == 'd' &&
-                    bytes[index + 2] == '\'' && bytes[index + 3] == ':') {
-                date = createField(bytes, index);
-                break;
-            }
-        }
-
-        while (true) {
-            index++;
-            if (bytes[index] == '\'' && bytes[index + 1] == 'f' &&
-                    bytes[index + 2] == '\'' && bytes[index + 3] == ':') {
-                fileName = createField(bytes, index);
-                break;
-            }
-        }
-        while (true) {
-            index++;
-            if (bytes[index] == '\'' && bytes[index + 1] == 'l' &&
-                    bytes[index + 2] == '\'' && bytes[index + 3] == ':') {
-                fileLength = Integer.parseInt(createField(bytes, index));
-                break;
-            }
-        }
+        userName = getField(bytes, 'u');
+        command = getField(bytes, 'c').charAt(0);
+        date = getField(bytes, 'd');
+        fileName=getField(bytes, 'f');
+        fileLength=Integer.parseInt(getField(bytes,'l'));
 
         byte[] fileBytes = new byte[fileLength];
         while (true) {

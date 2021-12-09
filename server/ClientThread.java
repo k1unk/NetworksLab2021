@@ -6,17 +6,18 @@ import java.net.Socket;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 public class ClientThread extends Thread {
 
     Socket socket;
     HashMap<Socket, DataOutputStream> writers;
-    ArrayList<Socket> sockets;
+    List<Socket> sockets;
     ServerSocket serverSocket;
 
     public ClientThread(Socket socket,
                         HashMap<Socket, DataOutputStream> writers,
-                        ArrayList<Socket> sockets,
+                        List<Socket> sockets,
                         ServerSocket serverSocket) {
         this.socket = socket;
         this.writers = writers;
@@ -38,11 +39,15 @@ public class ClientThread extends Thread {
 
         while (!socket.isClosed()) {
             int lengthReceived;
+            String text = "_";
+            byte[] bytesReceived;
             try {
                 lengthReceived = reader.readInt();
-            } catch (IOException z) {
-                long time = Instant.now().toEpochMilli();
-                String serverDate = Long.toString(time);
+                bytesReceived = new byte[lengthReceived];
+                text = reader.readUTF();
+                reader.readFully(bytesReceived);
+            } catch (IOException e) {
+                String serverDate = getServerDate();
                 byte[] bytesToSend = MessageCreator.createMessage(userNames.get(socket),
                         'c', serverDate);
                 closeSocket(userNames.get(socket));
@@ -50,18 +55,6 @@ public class ClientThread extends Thread {
                     writeToClients(bytesToSend, "");
                 } catch (Exception ignored) {}
                 break;
-            }
-            String text = "_";
-            try {
-                text = reader.readUTF();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            byte[] bytesReceived = new byte[lengthReceived];
-            try {
-                reader.readFully(bytesReceived);
-            } catch (IOException e) {
-                e.printStackTrace();
             }
             Parser p = Parser.getAll(bytesReceived);
             String userName = p.getUserName();
@@ -71,22 +64,22 @@ public class ClientThread extends Thread {
             byte[] bytesToSend = null;
             long time = Instant.now().toEpochMilli();
             String serverDate = Long.toString(time);
-            if (command == 'g') {
-                bytesToSend = MessageCreator.createMessage(userName, 'g',serverDate);
+            if (command == Command.GREETING.getSymbol()) {
+                bytesToSend = MessageCreator.createMessage(userName, Command.GREETING.getSymbol(), serverDate);
                 userNames.put(socket, userName);
             }
-            if (command == 't') {
-                bytesToSend = MessageCreator.createMessage(userName, 't', serverDate,
+            if (command == Command.TEXT.getSymbol()) {
+                bytesToSend = MessageCreator.createMessage(userName, Command.TEXT.getSymbol(), serverDate,
                         fileName, bytesFile.length, bytesFile);
             }
 
-            if (command == 'c') {
-                bytesToSend = MessageCreator.createMessage(userName, 'c', serverDate);
+            if (command == Command.CLOSE.getSymbol()) {
+                bytesToSend = MessageCreator.createMessage(userName, Command.CLOSE.getSymbol(), serverDate);
                 closeSocket(userName);
             }
 
-            if (command == 'f') {
-                bytesToSend = MessageCreator.createMessage(userName, 'f', serverDate);
+            if (command == Command.FINISH_SERVER.getSymbol()) {
+                bytesToSend = MessageCreator.createMessage(userName, Command.FINISH_SERVER.getSymbol(), serverDate);
                 writeToClients(bytesToSend, text);
 
                 for (int i = 0; i < sockets.size(); i++) {
@@ -107,6 +100,11 @@ public class ClientThread extends Thread {
 
             writeToClients(bytesToSend, text);
         }
+    }
+
+    private String getServerDate() {
+        long time = Instant.now().toEpochMilli();
+        return Long.toString(time);
     }
 
     private void writeToClients(byte[] bytesToSend, String text) {
