@@ -65,7 +65,6 @@ public class Parser {
         }
 
         field = fieldBuilder.toString();
-        System.out.println(field);
         return field;
     }
 
@@ -81,7 +80,6 @@ public class Parser {
     }
 
     public static Parser getAll(byte[] bytes) {
-        System.out.println(new String(bytes, StandardCharsets.UTF_8));
         int index = 0;
         String userName;
         char command;
