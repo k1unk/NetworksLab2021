@@ -4,7 +4,7 @@ import java.nio.file.Files
 
 
 fun main(args: Array<String>) {
-    val s = Server();
+    val s = Server()
     s.start()
 }
 
@@ -25,21 +25,22 @@ class Server {
             }
             val clientAddress = inputPacket.address
             val clientPort = inputPacket.port
-            val request = Utils.unpackRequest(inputPacket.data)
+            val requestOpcode = Utils.unpackOpcode(inputPacket.data)
+            val requestBytes = Utils.unpackBytes(inputPacket.data)
             server.soTimeout = Utils.SOCKET_TIMEOUT
-            if (request.first == Utils.Opcode.RRQ) {
+            if (requestOpcode == Utils.Opcode.RRQ) {
                 println("Server received RRQ")
-                readMode(request, clientAddress, clientPort)
-            } else if (request.first == Utils.Opcode.WRQ) {
+                readMode(requestBytes, clientAddress, clientPort)
+            } else if (requestOpcode == Utils.Opcode.WRQ) {
                 println("Server received WRQ")
-                writeMode(request, clientAddress, clientPort)
+                writeMode(requestBytes, clientAddress, clientPort)
             }
         }
         server.close()
         println("Server closed")
     }
 
-    private fun writeMode(request: Pair<Utils.Opcode, List<String>>, address: InetAddress, port: Int) {
+    private fun writeMode(requestBytes: List<String>, address: InetAddress, port: Int) {
         Utils.send(server, Utils.packACK(0), address, port)
         val fileContent = ByteArrayOutputStream()
         var currentBlock: Short = 1
@@ -52,66 +53,29 @@ class Server {
                 Utils.send(server, error, address, port)
                 return
             }
-            when (inputPacket.data[1].toShort()) {
-                Utils.Opcode.Error.code -> {
-                    val error = Utils.unpackError(inputPacket.data)
-                    println("Error ${error.first}: ${error.second}")
-                    return
-                }
-                Utils.Opcode.Data.code -> {
-                    val packData = Utils.unpackData(inputPacket.data, inputPacket.length)
-                    if (currentBlock == packData.first) {
-                        fileContent.write(packData.second)
-                        Utils.send(server, Utils.packACK(currentBlock), address, port)
-                        if (inputPacket.length != Utils.PACKET_SIZE) {
-                            break
-                        }
-                        currentBlock++
-                    } else
-                        Utils.send(server, Utils.packACK(currentBlock), address, port)
-                }
-                else -> {
-                    val error = Utils.packError(Utils.Error.IllegalTFTPOperation, "Expected ACK packet.")
-                    Utils.send(server, error, address, port)
-                }
-            }
+            val res = Utils.receiveData(inputPacket, currentBlock, fileContent, address, port, server);
+            if (res.second == 1) return
+            if (res.second == 2) break
+            currentBlock = res.first
         }
-        val fileName = request.second[0]
+        val fileName = requestBytes[0]
         File(fileName).writeBytes(fileContent.toByteArray())
         println("File $fileName downloaded successfully.")
     }
 
-    private fun readMode(request: Pair<Utils.Opcode, List<String>>, address: InetAddress, port: Int) {
-        val file: File
-        val fileBytes: ByteArray
-        try {
-            file = File(request.second.first())
-            fileBytes = Files.readAllBytes(file.toPath())
-        } catch (e: Exception) {
-            val error = Utils.packError(Utils.Error.FileNotFound, "File ${request.second.first()} not founded.")
+    private fun readMode(requestBytes: List<String>, address: InetAddress, port: Int) {
+        val file = File(requestBytes.first())
+        if (!file.exists()) {
+            val error = Utils.packError(Utils.Error.FileNotFound, "File ${requestBytes.first()} not founded.")
             Utils.send(server, error, address, port)
             println("RRQ: File not found.")
             return
         }
+        val fileBytes: ByteArray = Files.readAllBytes(file.toPath())
         var currentBlock: Short = 1
         var notEnd = true
         while (notEnd) {
-            val output: ByteArray
-            if (Utils.DATA_SIZE * currentBlock > fileBytes.size) {
-                output = Utils.packDataBlock(
-                    currentBlock, fileBytes.copyOfRange(
-                        Utils.DATA_SIZE * (currentBlock - 1), fileBytes.size
-                    )
-                )
-                notEnd = false
-            } else {
-                output = Utils.packDataBlock(
-                    currentBlock, fileBytes.copyOfRange(
-                        Utils.DATA_SIZE * (currentBlock - 1), Utils.DATA_SIZE * currentBlock
-                    )
-                )
-            }
-            Utils.send(server, output, address, port)
+            notEnd = Utils.sendData(currentBlock, fileBytes, server, address, port)
 
             val inputPacket: DatagramPacket
             try {
@@ -123,8 +87,7 @@ class Server {
             }
             when (inputPacket.data[1].toShort()) {
                 Utils.Opcode.ACK.code -> {
-                    currentBlock = Utils.unpackACK(inputPacket.data)
-                    currentBlock++
+                    if (currentBlock == Utils.unpackACK(inputPacket.data)) currentBlock++
                 }
                 Utils.Opcode.Error.code -> {
                     val error = Utils.unpackError(inputPacket.data)

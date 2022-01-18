@@ -1,5 +1,4 @@
 import java.io.*
-import java.lang.Exception
 import java.net.*
 import java.nio.file.Files
 
@@ -14,57 +13,37 @@ class Client {
     fun start() {
         println("format: [r | w] pathname")
         while (true) {
-            val input = readLine()?.trim()?.replace("\\s+".toRegex(), " ")
+            val input = readLine()?.trim()
+            val splittedInput = input?.split("\\s+".toRegex())
 
-            val splittedInput = input?.split(" ")
-            if (splittedInput?.get(0) == "") {
-                continue
+            if (splittedInput!![0] == "exit") {
+                break
             }
 
-            if (splittedInput?.size == 1) {
-                when ((splittedInput[0])) {
-                    "exit" -> {
-                        return
-                    }
-                    else -> {
-                        println("format: [r | w] pathname")
-                        continue
-                    }
-                }
-            }
-            if (splittedInput?.size == 2) {
-                val inp0 = splittedInput[0]
-                val inp1 = splittedInput[1]
-                when (inp0) {
+            if (splittedInput.size == 2) {
+                when (splittedInput[0]) {
                     "r" -> {
-                        readFile(inp1)
-                        return
+                        readMode(splittedInput[1])
+                        break
                     }
                     "w" -> {
-                        writeFile(inp1)
-                        return
-                    }
-                    else -> {
-                        println("format: [r | w] pathname")
-                        continue
+                        writeMode(splittedInput[1])
+                        break
                     }
                 }
-
-            }
-            if (splittedInput?.size!! > 2) {
-                println("format: [r | w] pathname")
-                continue
             }
 
+            println("format: [r | w] pathname")
         }
     }
 
-    private fun readFile(filePath: String) {
+    private fun readMode(filePath: String) {
         val client = DatagramSocket(70)
         val address = InetAddress.getLocalHost()
         client.soTimeout = Utils.SOCKET_TIMEOUT
 
-        val request = Utils.packRequest(Utils.Opcode.RRQ, filePath.split('/').last())
+        val fileName = File(filePath).name
+        val request = Utils.packRequest(Utils.Opcode.RRQ, fileName)
         Utils.send(client, request, address, serverPort)
 
         var inputPacket: DatagramPacket
@@ -81,28 +60,11 @@ class Client {
         val fileContent = ByteArrayOutputStream()
         var currentBlock: Short = 1
         while (true) {
-            when (inputPacket.data[1].toShort()) {
-                Utils.Opcode.Error.code -> {
-                    val error = Utils.unpackError(inputPacket.data)
-                    println("Error ${error.first}: ${error.second}")
-                    return
-                }
-                Utils.Opcode.Data.code -> {
-                    val packData = Utils.unpackData(inputPacket.data, inputPacket.length)
-                    if (currentBlock == packData.first) {
-                        fileContent.write(packData.second)
-                        Utils.send(client, Utils.packACK(currentBlock), address, serverPort)
-                        if (inputPacket.length != Utils.PACKET_SIZE) {
-                            break
-                        }
-                        currentBlock++
-                    } else
-                        Utils.send(client, Utils.packACK(currentBlock), address, serverPort)
-                }
-                else -> {
-                    val error = Utils.packError(Utils.Error.IllegalTFTPOperation, "Expected DATA packet.")
-                    Utils.send(client, error, address, serverPort)
-                }
+            val res = Utils.receiveData(inputPacket, currentBlock, fileContent, address, serverPort, client)
+            when (res.second) {
+                0 -> currentBlock = res.first
+                1 -> return
+                2 -> break
             }
             try {
                 inputPacket = Utils.receive(client)
@@ -114,25 +76,21 @@ class Client {
             }
         }
         client.close()
-        val fileName = filePath.split('/').last()
         File(fileName).writeBytes(fileContent.toByteArray())
         println("File $fileName downloaded successfully.")
     }
 
-    private fun writeFile(filePath: String) {
+    private fun writeMode(filePath: String) {
         val client = DatagramSocket(70)
         val address = InetAddress.getLocalHost()
         client.soTimeout = Utils.SOCKET_TIMEOUT
 
-        val file: File
-        val fileBytes: ByteArray
-        try {
-            file = File(filePath)
-            fileBytes = Files.readAllBytes(file.toPath())
-        } catch (e: Exception) {
+        val file = File(filePath)
+        if (!file.exists()) {
             println("File $filePath not found.")
             return
         }
+        val fileBytes = Files.readAllBytes(file.toPath())
 
         val request = Utils.packRequest(Utils.Opcode.WRQ, filePath.split('/').last())
         Utils.send(client, request, address, serverPort)
@@ -166,22 +124,8 @@ class Client {
                     Utils.send(client, error, address, serverPort)
                 }
             }
-            var output: ByteArray
-            if (Utils.DATA_SIZE * currentBlock > fileBytes.size) {
-                output = Utils.packDataBlock(
-                    currentBlock, fileBytes.copyOfRange(
-                        Utils.DATA_SIZE * (currentBlock - 1), fileBytes.size
-                    )
-                )
-                notEnd = false
-            } else {
-                output = Utils.packDataBlock(
-                    currentBlock, fileBytes.copyOfRange(
-                        Utils.DATA_SIZE * (currentBlock - 1), Utils.DATA_SIZE * currentBlock
-                    )
-                )
-            }
-            Utils.send(client, output, address, serverPort)
+            notEnd = Utils.sendData(currentBlock, fileBytes, client, address, serverPort)
+
             try {
                 inputPacket = Utils.receive(client)
             } catch (e: SocketTimeoutException) {
