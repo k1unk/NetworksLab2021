@@ -30,8 +30,8 @@ fun getLoginData(): List<String> {
        if (zxc=="1") return listOf("player1", "123", "false")
        if (zxc=="2") return listOf("player2", "123", "false")
        return listOf("Ilia", "qwerty123", "true")
+*/
 
-    */
 }
 
 fun auth(): Pair<String, Boolean> {
