@@ -5,7 +5,7 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 
 fun getLoginData(): List<String> {
-    println("Введите логин")
+   /* println("Введите логин")
     val login = readLine()
     println("Введите пароль")
     val password = readLine()
@@ -24,12 +24,12 @@ fun getLoginData(): List<String> {
     }
 
     return listOf(login.toString(), password.toString(), isAdmin.toString())
+*/
 
-
-    /*   val zxc = readLine()
+       val zxc = readLine()
        if (zxc=="1") return listOf("player1", "123", "false")
        if (zxc=="2") return listOf("player2", "123", "false")
-       return listOf("Ilia", "qwerty123", "true")*/
+       return listOf("Ilia", "qwerty123", "true")
 }
 
 fun auth(): Pair<String, Boolean> {

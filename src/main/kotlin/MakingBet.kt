@@ -5,20 +5,47 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 
 fun makeBet(token: String) {
-    println("Выберите тип ставки: чет/нечет - 1, число - 2")
-    val type = readLine()?.toInt()
+    val type: Int
+    while (true) {
+        println("Выберите тип ставки: чет/нечет - 1, число - 2")
+        val typeString = readLine()
+        if (typeString == "1" || typeString == "2") {
+            type = typeString.toInt()
+            break
+        }
+    }
     var number = 0
     if (type == 1) {
-        println("Выберите чет/нечет: чет - 1, нечет - 2")
-        number = readLine()?.toInt()!!
+        while (true) {
+            println("Выберите чет/нечет: чет - 1, нечет - 2")
+            val numberString = readLine()
+            if (numberString == "1" || numberString == "2") {
+                number = numberString.toInt()
+                break
+            }
+        }
     }
     if (type == 2) {
-        println("Выберите число от 0 до 35")
-        number = readLine()?.toInt()!!
+        while (true) {
+            println("Выберите число от 0 до 36")
+            val numberString = readLine()
+            try {
+                number = numberString!!.toInt()
+                if (number in 0..36) break
+            } catch (e: Exception) { }
+        }
     }
-    println("Выберите сумму ставки")
-    val count = readLine()?.toInt()
-    postBet(count!!, type!!, number, token)
+
+    var count: Int
+    while (true) {
+        println("Выберите сумму ставки")
+        val countString = readLine()
+        try {
+            count = countString!!.toInt()
+            break
+        } catch (e: Exception) { }
+    }
+    postBet(count, type, number, token)
 }
 
 
