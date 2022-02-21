@@ -3,25 +3,18 @@ const jwt_decode = require("jwt-decode");
 
 const check_auth = (req, res) => {
     try {
-        let decoded = jwt_decode(req.query.authorization);
+        let decoded = jwt_decode(req.headers.authorization.substring(7));
+       // let decoded = jwt_decode(req.headers.authorization);
         if (decoded == null) {
             res.status(400).json({"error": `missing authorization`})
             return false
         }
-        let users = JSON.parse(JSON.stringify(login.usersJSON))
+        if (!login.check_login_and_password(res, decoded.login,
+            `no access`, decoded.password, `no access`)) return
 
-        if (users.logins.indexOf(decoded.login) === -1) {
-            return res.status(403).json({message: `no access`})
-        }
-
-        let user = users.users[Object.keys(users.users).find(user => users.users[user].login === decoded.login)]
-
-        if (user.password !== decoded.password) {
-            return res.status(403).json({message: "no access"})
-        }
     } catch (err) {
-        res.status(403).json({
-            message: 'no access'
+        res.status(500).json({
+            message: err.message || "Some error"
         });
         return false
     }
@@ -122,5 +115,5 @@ const slow_operation = async (a, operation) => {
             result = factorial(a)
             break
     }
-    return new Promise((resolve, reject) => resolve(result));
+    return result
 };

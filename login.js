@@ -16,13 +16,30 @@ exports.usersJSON = {
     ],
 }
 
+exports.check_login_and_password = (res, login, login_err_msg, password, password_err_msg) => {
+    let users = exports.usersJSON
+
+    if (users.logins.indexOf(login) === -1) {
+        res.status(403).json({message: login_err_msg})
+        return false
+    }
+
+    let user = users.users[Object.keys(users.users).find(user => users.users[user].login === login)]
+
+    if (user.password !== password) {
+        res.status(403).json({message: password_err_msg})
+        return false
+    }
+    return user
+}
+
 exports.post_auth = (req, res) => {
     try {
         const {login, password} = req.body;
         if (login == null || password == null) {
             return res.status(400).json({"error": `missing login or password`})
         }
-        let users = JSON.parse(JSON.stringify(exports.usersJSON))
+        let users = exports.usersJSON
 
         if (users.logins.indexOf(login) !== -1) {
             return res.status(403).json({message: `User with login ${login} already exists`})
@@ -36,9 +53,10 @@ exports.post_auth = (req, res) => {
             "password": password
         }
         exports.usersJSON.logins.push(login)
-    } catch (e) {
-        console.log(e)
-        res.send({message: "Server error"})
+    } catch (err) {
+        res.status(500).json({
+            message: err.message || "Some error"
+        });
     }
 }
 
@@ -49,17 +67,10 @@ exports.post_login = (req, res) => {
         if (login == null || password == null) {
             return res.status(400).json({"error": `missing login or password`})
         }
-        let users = JSON.parse(JSON.stringify(exports.usersJSON))
+        let user = exports.check_login_and_password(res, login,
+            `User with login ${login} doesn't exist`, password,  "Invalid password")
 
-        if (users.logins.indexOf(login) === -1) {
-            return res.status(403).json({message: `User with login ${login} doesn't exist`})
-        }
-
-        let user = users.users[Object.keys(users.users).find(user => users.users[user].login === login)]
-
-        if (user.password !== password) {
-            return res.status(403).json({message: "Invalid password"})
-        }
+        if (!user) return
 
         const token = jwt.sign({login: user.login, password: user.password}, "secretKey", {expiresIn: "1h"})
 
@@ -72,8 +83,7 @@ exports.post_login = (req, res) => {
         })
     } catch (err) {
         res.status(500).json({
-            message:
-                err.message || "Some error"
+            message: err.message || "Some error"
         });
     }
 }
@@ -84,7 +94,7 @@ exports.post_logout = (req, res) => {
         if (login == null) {
             return res.status(400).json({"error": `missing login`})
         }
-        let users = JSON.parse(JSON.stringify(exports.usersJSON))
+        let users = exports.usersJSON
 
         if (users.logins.indexOf(login) === -1) {
             return res.status(403).json({message: `User with login ${login} doesn't exist`})
@@ -97,8 +107,7 @@ exports.post_logout = (req, res) => {
         })
     } catch (err) {
         res.status(500).json({
-            message:
-                err.message || "Some error"
+            message: err.message || "Some error"
         });
     }
 }

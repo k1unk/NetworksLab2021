@@ -32,7 +32,7 @@ app.get('/div', (req, res) => {
 app.get('/sqrt', async (req, res) => {
     await slow_func(req, res, "sqrt")
 })
-app.get('/sqrt', async (req, res) => {
+app.get('/fact', async (req, res) => {
     await slow_func(req, res, "fact")
 })
 
